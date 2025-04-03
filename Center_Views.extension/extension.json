@@ -1,0 +1,14 @@
+{
+    "builtin": "False",
+    "default_enabled": "True",
+    "type": "extension",
+    "rocket_mode_compatible": "True",
+    "name": "Center View - Fabio",
+    "description": "allign views in sheets",
+    "author": "Fabio Sbriglio",
+    "author_profile": "",
+    "url": "",
+    "website": "https://bimtrainer.it",
+    "image": "",
+    "dependencies": []
+}
