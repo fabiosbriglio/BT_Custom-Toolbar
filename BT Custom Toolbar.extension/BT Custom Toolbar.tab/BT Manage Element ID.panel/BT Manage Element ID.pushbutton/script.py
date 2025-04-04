@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-from Autodesk.Revit.DB import FilteredElementCollector, Transaction, Element
+from Autodesk.Revit.DB import FilteredElementCollector, Transaction, ElementId, Wall, Floor, FamilyInstance, Room, GenericForm
 from pyrevit import forms, script
 
 # Get active Revit document
 doc = __revit__.ActiveUIDocument.Document
 
-# List of element types to choose from
+# Element types to choose from
 element_types = [
     "Walls",
     "Floors",
@@ -23,19 +23,19 @@ selected_type = forms.ask_for_one_item(element_types, title="Select Element Type
 if not selected_type:
     forms.alert("No element type selected. Exiting script.", exitscript=True)
 
-# Map selection to Revit class
+# Map selection to Revit classes
 type_map = {
-    "Walls": "Wall",
-    "Floors": "Floor",
-    "Doors": "FamilyInstance",
-    "Windows": "FamilyInstance",
-    "Columns": "FamilyInstance",
-    "Beams": "FamilyInstance",
-    "Rooms": "Room",
-    "Generic Models": "GenericModel"
+    "Walls": Wall,
+    "Floors": Floor,
+    "Doors": FamilyInstance,
+    "Windows": FamilyInstance,
+    "Columns": FamilyInstance,
+    "Beams": FamilyInstance,
+    "Rooms": Room,
+    "Generic Models": GenericForm  # Corrected class
 }
 
-selected_class = getattr(Autodesk.Revit.DB, type_map[selected_type], None)
+selected_class = type_map.get(selected_type, None)
 
 if not selected_class:
     forms.alert("Invalid selection. Exiting script.", exitscript=True)
@@ -44,7 +44,7 @@ if not selected_class:
 elements = FilteredElementCollector(doc).OfClass(selected_class).WhereElementIsNotElementType().ToElements()
 
 if not elements:
-    forms.alert(f"No {selected_type.lower()} found in the project.", exitscript=True)
+    forms.alert("No {} found in the project.".format(selected_type.lower()), exitscript=True)
 
 # Extract element IDs
 element_data = [{"Element Name": el.Name, "Current ID": el.Id.IntegerValue, "New ID": ""} for el in elements]
@@ -67,12 +67,12 @@ try:
         if new_id and new_id.isdigit():
             element = doc.GetElement(ElementId(element_id))
             if element:
-                param = element.LookupParameter("Mark")
-                if param and param.IsReadOnly is False:
+                param = element.LookupParameter("Mark")  # Use "Comments" if "Mark" is unavailable
+                if param and not param.IsReadOnly:
                     param.Set(new_id)
 
     t.Commit()
     forms.alert("✅ Element IDs updated successfully!")
 except Exception as e:
     t.RollBack()
-    forms.alert(f"⚠️ Error updating elements: {str(e)}")
+    forms.alert("⚠️ Error updating elements: {}".format(str(e)))
