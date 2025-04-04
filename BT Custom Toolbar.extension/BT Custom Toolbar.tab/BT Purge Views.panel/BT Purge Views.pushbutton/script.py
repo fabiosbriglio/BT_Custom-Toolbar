@@ -23,10 +23,10 @@ for vp in viewports:
     if view:
         views_on_sheets.add(view.Id.IntegerValue)  # Track views placed on sheets
 
-# Filter out views **not placed on a sheet**
+# **Filter views that are NOT placed on sheets**
 views_not_on_sheets = {k: v for k, v in all_views.items() if k not in views_on_sheets}
 
-# Prepare selection list
+# **Prepare selection list**
 view_options = []
 view_name_map = {}
 
@@ -35,25 +35,25 @@ for view in views_not_on_sheets.values():
     view_options.append(display_name)
     view_name_map[display_name] = view.Id  # Store actual ElementId
 
-# Stop if no views found
+# **Stop if no views found**
 if not view_options:
     forms.alert("No views found to delete!", exitscript=True)
 
-# User selection
+# **User selection**
 selected_views = forms.SelectFromList.show(
     view_options,
     title="Select Views to Delete",
     multiselect=True
 )
 
-# Stop if user cancels
+# **Stop if user cancels**
 if not selected_views:
     forms.alert("No views selected. Exiting script.", exitscript=True)
 
-# Convert selection back to ElementId list
+# **Convert selection back to ElementId list**
 views_to_delete = [view_name_map[v] for v in selected_views]
 
-# Start transaction to delete views
+# **Start transaction to delete views**
 t = Transaction(doc, "Delete Selected Views")
 t.Start()
 
@@ -63,12 +63,12 @@ for view_id in views_to_delete:
     try:
         element = doc.GetElement(ElementId(view_id))
         if element:  # Ensure the element is still valid
-            doc.Delete(element.Id)
+            doc.Delete(element.Id)  # Force deletion
             deleted_count += 1
     except Exception as e:
         script.get_output().print_md("⚠️ Could not delete view {}: {}".format(view_id, e))
 
 t.Commit()
 
-# Show result message
+# **Show result message**
 forms.alert("✅ Deleted {} views successfully!".format(deleted_count))
