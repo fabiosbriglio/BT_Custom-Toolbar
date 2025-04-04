@@ -1,67 +1,74 @@
-from Autodesk.Revit.DB import FilteredElementCollector, View, ViewSheet, Transaction
+# -*- coding: utf-8 -*-
+from Autodesk.Revit.DB import FilteredElementCollector, View, ViewSheet, Transaction, BuiltInParameter
 from pyrevit import forms, script
 
 # Get the active Revit document
 doc = __revit__.ActiveUIDocument.Document
 
-# Collect all views (excluding system views)
-views = FilteredElementCollector(doc).OfClass(View).WhereElementIsNotElementType().ToElements()
-
-# Collect all sheets to check if a view is placed
-sheets = FilteredElementCollector(doc).OfClass(ViewSheet).ToElements()
-views_on_sheets = set()
-for sheet in sheets:
-    for v_id in sheet.GetAllPlacedViews():
-        views_on_sheets.add(v_id)
+# Collect all views, EXCLUDING sheets and templates
+views = [
+    v for v in FilteredElementCollector(doc).OfClass(View).WhereElementIsNotElementType().ToElements()
+    if not isinstance(v, ViewSheet) and not v.IsTemplate
+]
 
 # Debugging Output
 output = script.get_output()
-output.print_md("### 🔍 **Checking Views to Delete**")
+output.print_md("### Checking Views Without Detail Numbers")
 
-# List of views to delete (only views NOT on sheets)
-unused_views = []
+# List of views to delete (only views WITHOUT a Detail Number)
+views_to_delete = []
 for v in views:
     try:
-        # Skip views that ARE on sheets
-        if v.Id in views_on_sheets:
-            output.print_md(f"📌 View on sheet (keeping): {v.Name}")
-            continue
+        # Get the "Detail Number" parameter
+        detail_param = v.get_Parameter(BuiltInParameter.VIEW_DETAIL_NUMBER)
+        detail_number = detail_param.AsString() if detail_param else None
 
-        # If a view is NOT on a sheet, mark it for deletion
-        unused_views.append(v)
-        output.print_md(f"✅ View not on sheet (deleting): {v.Name}")
+        # If the detail number is missing or empty, mark for deletion
+        if not detail_number or detail_number.strip() == "":
+            views_to_delete.append(v)
+            output.print_md("Marking for Deletion: {}".format(v.Name))
+
+        else:
+            output.print_md("Keeping: {} (Detail Number: {})".format(v.Name, detail_number))
 
     except Exception as e:
-        output.print_md(f"⚠️ Error processing {v.Name}: {e}")
+        output.print_md("Error processing {}: {}".format(v.Name, e))
 
 # Stop if no views to delete
-if not unused_views:
-    forms.alert("No views found to delete! All views are on sheets.", exitscript=True)
+if not views_to_delete:
+    forms.alert("No views found without a Detail Number. Nothing to delete!", exitscript=True)
 
 else:
     # Show a list of views that will be deleted
-    view_names = "\n".join([v.Name for v in unused_views])
+    view_names = "\n".join([v.Name for v in views_to_delete])
     confirm = forms.alert(
         title="Confirm Deletion",
-        msg="The following {} views will be deleted:\n\n{}\n\nContinue?".format(len(unused_views), view_names),
+        msg="The following {} views will be deleted:\n\n{}\n\nContinue?".format(len(views_to_delete), view_names),
         ok=True, cancel=True
     )
 
     if confirm:
-        # Start a transaction
-        t = Transaction(doc, "Delete Views Not on Sheets")
-        t.Start()
+        try:
+            # Start a transaction
+            t = Transaction(doc, "Delete Views Without Detail Numbers")
+            t.Start()
 
-        deleted_count = 0
-        for v in unused_views:
-            try:
-                doc.Delete(v.Id)
-                deleted_count += 1
-                output.print_md(f"🗑 Deleted: {v.Name}")
-            except Exception as e:
-                output.print_md(f"⚠️ Could not delete {v.Name}: {e}")
+            deleted_count = 0
+            for v in views_to_delete:
+                try:
+                    doc.Delete(v.Id)
+                    deleted_count += 1
+                    output.print_md("Deleted: {}".format(v.Name))
 
-        t.Commit()
+                except Exception as e:
+                    output.print_md("Could not delete {}: {}".format(v.Name, e))
 
-        # Show result
-        forms.alert(f"Deleted {deleted_count} views that were not on sheets! 🚀")
+            t.Commit()
+
+            # Show result
+            forms.alert("Deleted {} views that had no Detail Number!".format(deleted_count))
+
+        except Exception as e:
+            t.RollBack()
+            forms.alert("Transaction failed: {}".format(e))
+            output.print_md("Transaction failed: {}".format(e))
