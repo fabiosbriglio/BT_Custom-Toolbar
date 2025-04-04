@@ -28,7 +28,13 @@ if not views_on_sheets:
 
 # Convert views into a list for user selection
 view_options = ["{} (Sheet: {})".format(view.Name, sheet_name) for _, (view, sheet_name) in views_on_sheets.items()]
-selected_views = forms.select(view_options, title="Select Views to Delete", multiselect=True)
+
+# Use pyRevit forms to allow user selection
+selected_views = forms.SelectFromList.show(
+    view_options,
+    title="Select Views to Delete",
+    multiselect=True
+)
 
 # Stop if user cancels
 if not selected_views:
