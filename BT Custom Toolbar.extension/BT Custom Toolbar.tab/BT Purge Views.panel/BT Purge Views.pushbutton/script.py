@@ -6,7 +6,7 @@ from pyrevit import forms
 doc = __revit__.ActiveUIDocument.Document
 
 # Collect all views in the project
-views = FilteredElementCollector(doc).OfClass(View).ToElements()
+views = FilteredElementCollector(doc).OfClass(View).WhereElementIsNotElementType().ToElements()
 
 # View types to keep (essential ones)
 protected_view_types = [
@@ -14,10 +14,16 @@ protected_view_types = [
     ViewType.Section, ViewType.Elevation, ViewType.Detail, ViewType.DraftingView, ViewType.Schedule
 ]
 
-# Filter unused views (excluding view templates and protected view types)
-unused_views = [v for v in views if not v.IsTemplate and v.ViewType not in protected_view_types]
+# Ensure the collected elements are valid views
+unused_views = []
+for v in views:
+    try:
+        if v and not v.IsTemplate and v.ViewType not in protected_view_types and not v.IsDependent:
+            unused_views.append(v)
+    except Exception as e:
+        print("Skipping element due to error: {}".format(e))
 
-# Ask for confirmation before deleting
+# Stop if no views to delete
 if not unused_views:
     forms.alert("No unused views found!", exitscript=True)
 else:
@@ -38,9 +44,9 @@ else:
                 doc.Delete(v.Id)
                 deleted_count += 1
             except Exception as e:
-                print(f"Could not delete {v.Name}: {e}")
+                print("Could not delete {}: {}".format(v.Name, e))  # Fixed string formatting
 
         t.Commit()
 
         # Show result
-        forms.alert(f"Deleted {deleted_count} unused views successfully!")
+        forms.alert("Deleted {} unused views successfully!".format(deleted_count))
