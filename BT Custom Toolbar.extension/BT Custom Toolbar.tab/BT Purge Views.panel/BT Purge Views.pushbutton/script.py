@@ -11,12 +11,13 @@ views = [
     if not isinstance(v, ViewSheet) and not v.IsTemplate
 ]
 
-# Collect all sheets to check if a view is placed
+# Collect all sheets and get views placed on sheets
 sheets = FilteredElementCollector(doc).OfClass(ViewSheet).ToElements()
 views_on_sheets = set()
 for sheet in sheets:
-    for v_id in sheet.GetAllPlacedViews():
-        views_on_sheets.add(v_id)
+    placed_view_ids = sheet.GetAllPlacedViews()  # Returns view IDs
+    for v_id in placed_view_ids:
+        views_on_sheets.add(v_id.IntegerValue)  # Store ID as an integer
 
 # Debugging Output
 output = script.get_output()
@@ -26,8 +27,8 @@ output.print_md("### Checking Views Not Placed on Sheets")
 views_to_delete = []
 for v in views:
     try:
-        # Skip views that ARE on sheets
-        if v.Id in views_on_sheets:
+        # Skip views that ARE placed on sheets
+        if v.Id.IntegerValue in views_on_sheets:
             output.print_md("Keeping: {} (Placed on Sheet)".format(v.Name))
             continue
 
