@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 from Autodesk.Revit.DB import (
-    FilteredElementCollector, View, ViewSchedule, Viewport, ViewSheet, Transaction, BuiltInParameter
+    FilteredElementCollector, View, ViewSchedule, Viewport, ViewSheet, Transaction, BuiltInParameter, ElementId
 )
 from pyrevit import forms, script
 
 # Get the active Revit document
 doc = __revit__.ActiveUIDocument.Document
 
-# Function to check if a view is a system browser view
+# 🔹 Function to check if a view is a system browser view
 def is_system_view(view):
     """Returns True if the view is a system browser view."""
     try:
@@ -18,7 +18,7 @@ def is_system_view(view):
         pass
     return False
 
-# Collect all views (excluding templates & system browser views)
+# 🔹 Collect all views (excluding templates & system browser views)
 all_views = {
     v.Id.IntegerValue: v for v in FilteredElementCollector(doc)
     .OfClass(View)
@@ -26,31 +26,30 @@ all_views = {
     if not v.IsTemplate and not is_system_view(v)  # Exclude system browser views
 }
 
-# Collect all schedules separately
+# 🔹 Collect all schedules separately
 all_schedules = {
     s.Id.IntegerValue: s for s in FilteredElementCollector(doc)
     .OfClass(ViewSchedule)
     .WhereElementIsNotElementType()
 }
 
-# Collect all Viewports (which contain views placed on sheets)
+# 🔹 Collect all Viewports (views placed on sheets)
 viewports = FilteredElementCollector(doc).OfClass(Viewport).ToElements()
 
-# Collect all Sheets to double-check views placed on sheets
+# 🔹 Collect all Sheets and check views placed on them
 sheets = FilteredElementCollector(doc).OfClass(ViewSheet).ToElements()
-
-# Track views that are placed on sheets
 views_on_sheets = set()
+
+# ✅ Check **Viewports** (views explicitly placed inside sheets)
+for vp in viewports:
+    views_on_sheets.add(vp.ViewId.IntegerValue)
+
+# ✅ Check **ViewSheet** (some views might be directly placed on sheets)
 for sheet in sheets:
-    for view_id in sheet.GetAllPlacedViews():  # Get all views placed on this sheet
+    for view_id in sheet.GetAllPlacedViews():
         views_on_sheets.add(view_id.IntegerValue)
 
-# Also check viewports
-for vp in viewports:
-    view_id = vp.ViewId.IntegerValue
-    views_on_sheets.add(view_id)  # If it's in a viewport, it's on a sheet
-
-# Filter out views that are on sheets
+# ✅ Final filtering: Exclude **ALL views that are on sheets**
 views_not_on_sheets = {
     vid: v for vid, v in all_views.items() if vid not in views_on_sheets
 }
@@ -58,7 +57,7 @@ schedules_not_on_sheets = {
     sid: s for sid, s in all_schedules.items() if sid not in views_on_sheets
 }
 
-# Ask user what to delete
+# 🔹 Ask user what to delete
 delete_option = forms.SelectFromList.show(
     ["❌ Delete Views (Not on Sheets)", "📊 Delete Schedules (Not on Sheets)"],
     title="Select Deletion Category",
@@ -68,7 +67,7 @@ delete_option = forms.SelectFromList.show(
 if not delete_option:
     forms.alert("No category selected. Exiting script.", exitscript=True)
 
-# Select category to delete
+# 🔹 Select category to delete
 if "Views" in delete_option:
     elements_to_delete = views_not_on_sheets
     category_name = "Views"
@@ -76,7 +75,7 @@ elif "Schedules" in delete_option:
     elements_to_delete = schedules_not_on_sheets
     category_name = "Schedules"
 
-# Prepare list for user selection
+# 🔹 Prepare list for user selection
 view_options = []
 view_name_map = {}  # Map displayed names to actual view objects
 
@@ -85,22 +84,22 @@ for element in elements_to_delete.values():
     view_options.append(display_name)
     view_name_map[display_name] = element  # Store actual object
 
-# Stop if no views/schedules found
+# 🔹 Stop if no views/schedules found
 if not view_options:
     forms.alert("No {} found to delete!".format(category_name), exitscript=True)
 
-# User selection
+# 🔹 User selection
 selected_views = forms.SelectFromList.show(
     view_options,
     title="Select {} to Delete".format(category_name),
     multiselect=True
 )
 
-# Stop if user cancels
+# 🔹 Stop if user cancels
 if not selected_views:
     forms.alert("No {} selected. Exiting script.".format(category_name), exitscript=True)
 
-# Start transaction to delete views/schedules
+# 🔹 Start transaction to delete views/schedules
 t = Transaction(doc, "Delete Selected {}".format(category_name))
 t.Start()
 
@@ -117,5 +116,5 @@ for view_text in selected_views:
 
 t.Commit()
 
-# Show result message
+# 🔹 Show result message
 forms.alert("✅ Deleted {} {} successfully!".format(deleted_count, category_name))
