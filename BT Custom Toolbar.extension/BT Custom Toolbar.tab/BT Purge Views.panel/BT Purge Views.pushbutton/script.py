@@ -11,17 +11,20 @@ doc = __revit__.ActiveUIDocument.Document
 def is_system_view(view):
     """Returns True if the view is a system browser view."""
     try:
-        view_type = view.get_Parameter(BuiltInParameter.VIEW_TYPE).AsInteger()
-        return view_type == 6  # 6 = System Browser View
+        param = view.get_Parameter(BuiltInParameter.VIEW_TYPE)
+        if param:
+            view_type = param.AsInteger()
+            return view_type == 6  # 6 = System Browser View
     except:
-        return False
+        pass
+    return False  # Default to False if not found
 
-# Collect all views (excluding templates and system browser views)
+# Collect all views (excluding templates & system browser views)
 all_views = {
     v.Id.IntegerValue: v for v in FilteredElementCollector(doc)
     .OfClass(View)
     .WhereElementIsNotElementType()
-    if not v.IsTemplate and not is_system_view(v)  # Exclude system views
+    if not v.IsTemplate and not is_system_view(v)  # Exclude system browser views
 }
 
 # Collect all schedules separately
