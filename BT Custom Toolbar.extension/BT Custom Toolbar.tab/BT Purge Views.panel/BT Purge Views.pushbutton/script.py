@@ -8,7 +8,7 @@ doc = __revit__.ActiveUIDocument.Document
 # Collect all viewports (which contain views placed on sheets)
 viewports = FilteredElementCollector(doc).OfClass(Viewport).ToElements()
 
-# Store views placed inside viewports, along with their sheet names and active status
+# Dictionary to store views placed inside viewports and their sheets
 views_on_sheets = {}
 
 for vp in viewports:
@@ -16,20 +16,19 @@ for vp in viewports:
     sheet = doc.GetElement(vp.SheetId)
     
     if view and sheet:
-        is_active = " (ACTIVE)" if vp.IsActive else ""  # Mark active views
-        views_on_sheets[view.Id.IntegerValue] = (view, sheet.Name, is_active)
+        views_on_sheets[view.Id.IntegerValue] = (view, sheet.Name)
 
 # Debug Output
 output = script.get_output()
 output.print_md("### 📋 Views Placed in Viewports on Sheets")
 
-# Check if there are views on sheets
+# Stop if no views found
 if not views_on_sheets:
     forms.alert("No views found inside viewports on sheets!", exitscript=True)
 
 # Convert views into a list for user selection
-view_options = ["{} (Sheet: {}{})".format(view.Name, sheet_name, active_status) 
-                for _, (view, sheet_name, active_status) in views_on_sheets.items()]
+view_options = ["{} (Sheet: {})".format(view.Name, sheet_name) 
+                for _, (view, sheet_name) in views_on_sheets.items()]
 
 # Use pyRevit forms to allow user selection
 selected_views = forms.SelectFromList.show(
@@ -54,7 +53,7 @@ try:
         view_name = view_text.split(" (Sheet:")[0]
         
         # Find the view by name
-        view_to_delete = next((v for v, _, _ in views_on_sheets.values() if v.Name == view_name), None)
+        view_to_delete = next((v for v, _ in views_on_sheets.values() if v.Name == view_name), None)
         
         if view_to_delete:
             doc.Delete(view_to_delete.Id)
