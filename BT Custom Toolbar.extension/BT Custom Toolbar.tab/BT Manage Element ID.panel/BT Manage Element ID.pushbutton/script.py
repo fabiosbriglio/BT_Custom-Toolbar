@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 from Autodesk.Revit.DB import (
-    FilteredElementCollector, Transaction, ElementId, Wall, Floor, 
-    FamilyInstance, Ceiling, RoofBase, Stairs, Railing, Column, 
-    BeamSystem, StructuralFraming, StructuralColumn
+    FilteredElementCollector, Transaction, ElementId, Wall, Floor, Ceiling, RoofType, 
+    FamilyInstance, StructuralFraming, StructuralColumn, Pipe, Duct, ElectricalEquipment, 
+    MechanicalEquipment, PlumbingFixture, LightingFixture, Furniture, GenericForm
 )
-from Autodesk.Revit.DB.Architecture import Room  # Correct import for Room
+from Autodesk.Revit.DB.Architecture import Room  # Correct import for Rooms
 from pyrevit import forms, script
 
 # Get active Revit document
@@ -20,12 +20,15 @@ element_types = [
     "Windows",
     "Columns",
     "Beams",
-    "Stairs",
-    "Railings",
+    "Pipes",
+    "Ducts",
+    "Electrical Equipment",
+    "Mechanical Equipment",
+    "Plumbing Fixtures",
+    "Lighting Fixtures",
+    "Furniture",
     "Rooms",
-    "Generic Models",
-    "Structural Columns",
-    "Structural Framing"
+    "Generic Models"
 ]
 
 # User selects an element type
@@ -39,17 +42,20 @@ type_map = {
     "Walls": Wall,
     "Floors": Floor,
     "Ceilings": Ceiling,
-    "Roofs": RoofBase,
+    "Roofs": RoofType,
     "Doors": FamilyInstance,
     "Windows": FamilyInstance,
-    "Columns": Column,
+    "Columns": StructuralColumn,
     "Beams": StructuralFraming,
-    "Stairs": Stairs,
-    "Railings": Railing,
+    "Pipes": Pipe,
+    "Ducts": Duct,
+    "Electrical Equipment": ElectricalEquipment,
+    "Mechanical Equipment": MechanicalEquipment,
+    "Plumbing Fixtures": PlumbingFixture,
+    "Lighting Fixtures": LightingFixture,
+    "Furniture": Furniture,
     "Rooms": Room,
-    "Generic Models": FamilyInstance,  # ✅ Generic Models are FamilyInstances
-    "Structural Columns": StructuralColumn,
-    "Structural Framing": StructuralFraming
+    "Generic Models": FamilyInstance  # Generic Models are typically FamilyInstances
 }
 
 selected_class = type_map.get(selected_type, None)
