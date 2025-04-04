@@ -1,10 +1,10 @@
-from Autodesk.Revit.DB import FilteredElementCollector, View, ViewSheet, Transaction
+from Autodesk.Revit.DB import FilteredElementCollector, View, ViewSheet, ViewType, Transaction
 from pyrevit import forms, script
 
 # Get the active Revit document
 doc = __revit__.ActiveUIDocument.Document
 
-# Collect all views, EXCLUDING SHEETS
+# Collect all views (excluding ViewSheets)
 views = FilteredElementCollector(doc).OfClass(View).WhereElementIsNotElementType().ToElements()
 
 # Collect all sheets to check if a view is placed
@@ -16,14 +16,21 @@ for sheet in sheets:
 
 # Debugging Output
 output = script.get_output()
-output.print_md("### 🔍 **Checking Views to Delete**")
+output.print_md("### 🔍 **Checking Views, Legends, and Schedules to Delete**")
 
-# List of views to delete (only views NOT on sheets, and NOT sheets themselves)
-unused_views = []
+# View types to be deleted if NOT on a sheet
+deletable_view_types = {
+    ViewType.FloorPlan, ViewType.CeilingPlan, ViewType.ThreeD, ViewType.EngineeringPlan,
+    ViewType.Section, ViewType.Elevation, ViewType.Detail, ViewType.DraftingView, 
+    ViewType.Schedule, ViewType.Legend
+}
+
+# List of views, legends, and schedules to delete
+unused_elements = []
 for v in views:
     try:
-        # Skip if the view is a SHEET
-        if isinstance(v, ViewSheet) or v.ViewType == ViewType.DrawingSheet:
+        # Skip if it's a SHEET (ViewSheet objects are also Views)
+        if v.ViewType == ViewType.DrawingSheet:
             output.print_md(f"📄 Keeping Sheet: {v.Name}")
             continue
 
@@ -32,41 +39,42 @@ for v in views:
             output.print_md(f"📌 Keeping View on Sheet: {v.Name}")
             continue
 
-        # If a view is NOT on a sheet, mark it for deletion
-        unused_views.append(v)
-        output.print_md(f"✅ View NOT on Sheet (Deleting): {v.Name}")
+        # Only delete specific view types (no templates, no system views)
+        if v.ViewType in deletable_view_types and not v.IsTemplate:
+            unused_elements.append(v)
+            output.print_md(f"✅ Marking for Deletion: {v.Name} ({v.ViewType})")
 
     except Exception as e:
         output.print_md(f"⚠️ Error processing {v.Name}: {e}")
 
-# Stop if no views to delete
-if not unused_views:
-    forms.alert("No unused views found! All views are either on sheets or are sheets themselves.", exitscript=True)
+# Stop if nothing to delete
+if not unused_elements:
+    forms.alert("No unused views, legends, or schedules found!", exitscript=True)
 
 else:
-    # Show a list of views that will be deleted
-    view_names = "\n".join([v.Name for v in unused_views])
+    # Show a list of views, legends, and schedules that will be deleted
+    element_names = "\n".join([v.Name for v in unused_elements])
     confirm = forms.alert(
         title="Confirm Deletion",
-        msg="The following {} views will be deleted:\n\n{}\n\nContinue?".format(len(unused_views), view_names),
+        msg="The following {} elements will be deleted:\n\n{}\n\nContinue?".format(len(unused_elements), element_names),
         ok=True, cancel=True
     )
 
     if confirm:
         # Start a transaction
-        t = Transaction(doc, "Delete Views Not on Sheets")
+        t = Transaction(doc, "Purge Unused Views, Legends, and Schedules")
         t.Start()
 
         deleted_count = 0
-        for v in unused_views:
+        for v in unused_elements:
             try:
                 doc.Delete(v.Id)
                 deleted_count += 1
-                output.print_md(f"🗑 Deleted: {v.Name}")
+                output.print_md(f"🗑 Deleted: {v.Name} ({v.ViewType})")
             except Exception as e:
                 output.print_md(f"⚠️ Could not delete {v.Name}: {e}")
 
         t.Commit()
 
         # Show result
-        forms.alert(f"Deleted {deleted_count} views that were not on sheets! 🚀")
+        forms.alert(f"Deleted {deleted_count} unused views, legends, and schedules! 🚀")
