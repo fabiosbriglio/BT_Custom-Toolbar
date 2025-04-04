@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-from Autodesk.Revit.DB import FilteredElementCollector, Transaction, ElementId, Wall, Floor, FamilyInstance, Room, GenericForm
+from Autodesk.Revit.DB import FilteredElementCollector, Transaction, ElementId, Wall, Floor, FamilyInstance, GenericModel
+from Autodesk.Revit.DB.Architecture import Room  # Correct import for Room
 from pyrevit import forms, script
 
 # Get active Revit document
@@ -32,7 +33,7 @@ type_map = {
     "Columns": FamilyInstance,
     "Beams": FamilyInstance,
     "Rooms": Room,
-    "Generic Models": GenericForm  # Corrected class
+    "Generic Models": GenericModel
 }
 
 selected_class = type_map.get(selected_type, None)
@@ -67,7 +68,10 @@ try:
         if new_id and new_id.isdigit():
             element = doc.GetElement(ElementId(element_id))
             if element:
-                param = element.LookupParameter("Mark")  # Use "Comments" if "Mark" is unavailable
+                param = element.LookupParameter("Mark")  # Most elements use "Mark"
+                if selected_type == "Rooms":
+                    param = element.LookupParameter("Number")  # Rooms use "Number"
+
                 if param and not param.IsReadOnly:
                     param.Set(new_id)
 
