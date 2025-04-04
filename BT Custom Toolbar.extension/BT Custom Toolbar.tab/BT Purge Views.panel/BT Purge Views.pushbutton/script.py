@@ -81,4 +81,4 @@ else:
         except Exception as e:
             t.RollBack()
             output.print_md(f"❌ Transaction failed: {e}")
-            forms.alert(f"Error
+            forms.alert(f"Error: {e}\nCheck output for details.")
