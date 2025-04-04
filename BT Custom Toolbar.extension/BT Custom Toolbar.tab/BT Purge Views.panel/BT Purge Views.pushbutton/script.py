@@ -1,4 +1,4 @@
-from Autodesk.Revit.DB import FilteredElementCollector, View, ViewType, ViewSheet
+from Autodesk.Revit.DB import FilteredElementCollector, View, ViewSheet, ViewType
 from pyrevit import script
 
 # Get the active Revit document
@@ -22,7 +22,7 @@ protected_view_types = [
 
 # Debugging Output
 output = script.get_output()
-output.print_md("### 🔍 **Debugging: Listing All Views**")
+output.print_md("### 🔍 **Debugging: Listing All Views & Their Status**")
 
 for v in views:
     reason = []
