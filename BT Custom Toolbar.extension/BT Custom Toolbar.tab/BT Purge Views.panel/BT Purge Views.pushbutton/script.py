@@ -1,10 +1,10 @@
-from Autodesk.Revit.DB import FilteredElementCollector, View, ViewSheet, Transaction, BuiltInCategory
+from Autodesk.Revit.DB import FilteredElementCollector, View, ViewSheet, Transaction
 from pyrevit import forms, script
 
 # Get the active Revit document
 doc = __revit__.ActiveUIDocument.Document
 
-# Collect all views (excluding ViewSheets)
+# Collect all views, EXCLUDING SHEETS
 views = FilteredElementCollector(doc).OfClass(View).WhereElementIsNotElementType().ToElements()
 
 # Collect all sheets to check if a view is placed
@@ -18,12 +18,12 @@ for sheet in sheets:
 output = script.get_output()
 output.print_md("### 🔍 **Checking Views to Delete**")
 
-# List of views to delete (only views NOT on sheets)
+# List of views to delete (only views NOT on sheets, and NOT sheets themselves)
 unused_views = []
 for v in views:
     try:
-        # Skip if it's a SHEET (ViewSheet is also a view)
-        if isinstance(v, ViewSheet):
+        # Skip if the view is a SHEET
+        if isinstance(v, ViewSheet) or v.ViewType == ViewType.DrawingSheet:
             output.print_md(f"📄 Keeping Sheet: {v.Name}")
             continue
 
