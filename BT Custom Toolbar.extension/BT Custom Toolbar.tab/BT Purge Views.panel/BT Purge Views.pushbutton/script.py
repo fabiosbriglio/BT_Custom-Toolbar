@@ -18,11 +18,10 @@ views_not_on_sheets = all_views.copy()  # Assume all views are NOT on sheets ini
 for vp in viewports:
     view = doc.GetElement(vp.ViewId)
     sheet = doc.GetElement(vp.SheetId)
-    
+
     if view and sheet:
         views_on_sheets[view.Id.IntegerValue] = (view, sheet.Name)
-        # Remove from "not on sheets" since it's placed
-        views_not_on_sheets.pop(view.Id.IntegerValue, None)
+        views_not_on_sheets.pop(view.Id.IntegerValue, None)  # Remove from "not on sheets" since it's placed
 
 # Debug Output
 output = script.get_output()
@@ -72,15 +71,20 @@ try:
         # Get the actual view object from the map
         view_to_delete = view_name_map.get(view_text, None)
 
-        # Check if the view still exists before deleting
-        if view_to_delete and doc.GetElement(view_to_delete.Id):
-            try:
-                doc.Delete(view_to_delete.Id)
-                deleted_count += 1
-                output.print_md("🗑 Deleted: {}".format(view_to_delete.Name))
-            except Exception as delete_error:
+        # **CHECK IF VIEW STILL EXISTS BEFORE DELETING**
+        if view_to_delete:
+            existing_view = doc.GetElement(view_to_delete.Id)
+            if existing_view:
+                try:
+                    doc.Delete(existing_view.Id)
+                    deleted_count += 1
+                    output.print_md("🗑 Deleted: {}".format(existing_view.Name))
+                except Exception as delete_error:
+                    invalid_views.append(existing_view.Name)
+                    output.print_md("⚠️ Could not delete {}: {}".format(existing_view.Name, delete_error))
+            else:
                 invalid_views.append(view_to_delete.Name)
-                output.print_md("⚠️ Could not delete {}: {}".format(view_to_delete.Name, delete_error))
+                output.print_md("⚠️ View already deleted: {}".format(view_to_delete.Name))
 
     t.Commit()
     
