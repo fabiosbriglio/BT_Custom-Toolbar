@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from Autodesk.Revit.DB import (
-    FilteredElementCollector, View, ViewSchedule, Viewport, Transaction, BuiltInParameter
+    FilteredElementCollector, View, ViewSchedule, Viewport, ViewSheet, Transaction, BuiltInParameter
 )
 from pyrevit import forms, script
 
@@ -13,11 +13,10 @@ def is_system_view(view):
     try:
         param = view.get_Parameter(BuiltInParameter.VIEW_TYPE)
         if param:
-            view_type = param.AsInteger()
-            return view_type == 6  # 6 = System Browser View
+            return param.AsInteger() == 6  # 6 = System Browser View
     except:
         pass
-    return False  # Default to False if not found
+    return False
 
 # Collect all views (excluding templates & system browser views)
 all_views = {
@@ -34,20 +33,30 @@ all_schedules = {
     .WhereElementIsNotElementType()
 }
 
-# Collect all viewports (which contain views placed on sheets)
+# Collect all Viewports (which contain views placed on sheets)
 viewports = FilteredElementCollector(doc).OfClass(Viewport).ToElements()
 
-# Dictionaries to store views placed inside viewports and their sheets
-views_on_sheets = {}
-views_not_on_sheets = all_views.copy()  # Assume all views are NOT on sheets initially
-schedules_not_on_sheets = all_schedules.copy()  # Assume all schedules are NOT on sheets initially
+# Collect all Sheets to double-check views placed on sheets
+sheets = FilteredElementCollector(doc).OfClass(ViewSheet).ToElements()
 
+# Track views that are placed on sheets
+views_on_sheets = set()
+for sheet in sheets:
+    for view_id in sheet.GetAllPlacedViews():  # Get all views placed on this sheet
+        views_on_sheets.add(view_id.IntegerValue)
+
+# Also check viewports
 for vp in viewports:
-    view = doc.GetElement(vp.ViewId)
-    if view:
-        views_on_sheets[view.Id.IntegerValue] = view
-        views_not_on_sheets.pop(view.Id.IntegerValue, None)  # Remove from "not on sheets" since it's placed
-        schedules_not_on_sheets.pop(view.Id.IntegerValue, None)  # Remove schedules if placed
+    view_id = vp.ViewId.IntegerValue
+    views_on_sheets.add(view_id)  # If it's in a viewport, it's on a sheet
+
+# Filter out views that are on sheets
+views_not_on_sheets = {
+    vid: v for vid, v in all_views.items() if vid not in views_on_sheets
+}
+schedules_not_on_sheets = {
+    sid: s for sid, s in all_schedules.items() if sid not in views_on_sheets
+}
 
 # Ask user what to delete
 delete_option = forms.SelectFromList.show(
