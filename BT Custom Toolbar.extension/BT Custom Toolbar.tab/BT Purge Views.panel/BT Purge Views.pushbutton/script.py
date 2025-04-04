@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
-from Autodesk.Revit.DB import FilteredElementCollector, View, ViewSheet, Viewport, Transaction
+from Autodesk.Revit.DB import FilteredElementCollector, View, Viewport, Transaction
 from pyrevit import forms, script
 
 # Get the active Revit document
 doc = __revit__.ActiveUIDocument.Document
 
-# Collect all views, excluding templates and schedules
+# Collect all views (excluding templates and schedules)
 views = [
     v for v in FilteredElementCollector(doc).OfClass(View).WhereElementIsNotElementType().ToElements()
-    if not v.IsTemplate and not v.ViewType == ViewSheet  # Exclude view templates and sheets
+    if not v.IsTemplate
 ]
 
-# Collect all viewports (which represent views placed on sheets)
+# Collect all viewports (which contain views placed on sheets)
 viewports = FilteredElementCollector(doc).OfClass(Viewport).ToElements()
-views_on_sheets = {vp.ViewId for vp in viewports}  # Store view IDs that are placed in viewports
+views_on_sheets = {vp.ViewId.IntegerValue for vp in viewports}  # Store view IDs as integers
 
 # Debugging Output
 output = script.get_output()
@@ -22,7 +22,7 @@ output.print_md("### 🔍 Checking Views NOT Placed in Viewports (to be deleted)
 # List of views to delete (ONLY those that are NOT in any viewport)
 views_to_delete = []
 for v in views:
-    if v.Id not in views_on_sheets:
+    if v.Id.IntegerValue not in views_on_sheets:  # Ensure view is NOT in a viewport
         views_to_delete.append(v)
         output.print_md("🗑 Marking for Deletion: {}".format(v.Name))
     else:
