@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from Autodesk.Revit.DB import FilteredElementCollector, View, ViewSheet, ViewType, Transaction
 from pyrevit import forms, script
 
@@ -16,7 +18,7 @@ for sheet in sheets:
 
 # Debugging Output
 output = script.get_output()
-output.print_md("### 🔍 **Checking Views, Legends, and Schedules to Delete**")
+output.print_md("### Checking Views, Legends, and Schedules to Delete")
 
 # View types to be deleted if NOT on a sheet
 deletable_view_types = {
@@ -31,21 +33,21 @@ for v in views:
     try:
         # Skip if it's a SHEET
         if v.ViewType == ViewType.DrawingSheet:
-            output.print_md(f"📄 Keeping Sheet: {v.Name}")
+            output.print_md("Keeping Sheet: {}".format(v.Name))
             continue
 
         # Skip views that ARE placed on sheets
         if v.Id in views_on_sheets:
-            output.print_md(f"📌 Keeping View on Sheet: {v.Name}")
+            output.print_md("Keeping View on Sheet: {}".format(v.Name))
             continue
 
         # Only delete specific view types (no templates, no system views)
         if v.ViewType in deletable_view_types and not v.IsTemplate:
             unused_elements.append(v)
-            output.print_md(f"✅ Marking for Deletion: {v.Name} ({v.ViewType})")
+            output.print_md("Marking for Deletion: {} ({})".format(v.Name, v.ViewType))
 
     except Exception as e:
-        output.print_md(f"⚠️ Error processing {v.Name}: {e}")
+        output.print_md("Error processing {}: {}".format(v.Name, e))
 
 # Stop if nothing to delete
 if not unused_elements:
@@ -71,14 +73,14 @@ else:
                 try:
                     doc.Delete(v.Id)
                     deleted_count += 1
-                    output.print_md(f"🗑 Deleted: {v.Name} ({v.ViewType})")
+                    output.print_md("Deleted: {} ({})".format(v.Name, v.ViewType))
                 except Exception as e:
-                    output.print_md(f"⚠️ Could not delete {v.Name}: {e}")
+                    output.print_md("Could not delete {}: {}".format(v.Name, e))
 
             t.Commit()
-            forms.alert(f"Deleted {deleted_count} unused views, legends, and schedules! 🚀")
+            forms.alert("Deleted {} unused views, legends, and schedules!".format(deleted_count))
 
         except Exception as e:
             t.RollBack()
-            output.print_md(f"❌ Transaction failed: {e}")
-            forms.alert(f"Error: {e}\nCheck output for details.")
+            output.print_md("Transaction failed: {}".format(e))
+            forms.alert("Error: {}\nCheck output for details.".format(e))
