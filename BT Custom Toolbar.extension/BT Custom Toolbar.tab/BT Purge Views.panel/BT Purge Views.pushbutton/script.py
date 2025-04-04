@@ -4,7 +4,7 @@ from pyrevit import forms, script
 # Get the active Revit document
 doc = __revit__.ActiveUIDocument.Document
 
-# Collect all views (excluding ViewSheets)
+# Collect all views, EXCLUDING sheets
 views = FilteredElementCollector(doc).OfClass(View).WhereElementIsNotElementType().ToElements()
 
 # Collect all sheets to check if a view is placed
@@ -29,7 +29,7 @@ deletable_view_types = {
 unused_elements = []
 for v in views:
     try:
-        # Skip if it's a SHEET (ViewSheet objects are also Views)
+        # Skip if it's a SHEET
         if v.ViewType == ViewType.DrawingSheet:
             output.print_md(f"📄 Keeping Sheet: {v.Name}")
             continue
@@ -61,20 +61,24 @@ else:
     )
 
     if confirm:
-        # Start a transaction
-        t = Transaction(doc, "Purge Unused Views, Legends, and Schedules")
-        t.Start()
+        try:
+            # Start a transaction
+            t = Transaction(doc, "Purge Unused Views, Legends, and Schedules")
+            t.Start()
 
-        deleted_count = 0
-        for v in unused_elements:
-            try:
-                doc.Delete(v.Id)
-                deleted_count += 1
-                output.print_md(f"🗑 Deleted: {v.Name} ({v.ViewType})")
-            except Exception as e:
-                output.print_md(f"⚠️ Could not delete {v.Name}: {e}")
+            deleted_count = 0
+            for v in unused_elements:
+                try:
+                    doc.Delete(v.Id)
+                    deleted_count += 1
+                    output.print_md(f"🗑 Deleted: {v.Name} ({v.ViewType})")
+                except Exception as e:
+                    output.print_md(f"⚠️ Could not delete {v.Name}: {e}")
 
-        t.Commit()
+            t.Commit()
+            forms.alert(f"Deleted {deleted_count} unused views, legends, and schedules! 🚀")
 
-        # Show result
-        forms.alert(f"Deleted {deleted_count} unused views, legends, and schedules! 🚀")
+        except Exception as e:
+            t.RollBack()
+            output.print_md(f"❌ Transaction failed: {e}")
+            forms.alert(f"Error
