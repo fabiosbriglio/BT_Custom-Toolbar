@@ -1,5 +1,5 @@
-from Autodesk.Revit.DB import FilteredElementCollector, View, ViewSheet, ViewType
-from pyrevit import script
+from Autodesk.Revit.DB import FilteredElementCollector, View, ViewSheet, ViewType, Transaction
+from pyrevit import forms
 
 # Get the active Revit document
 doc = __revit__.ActiveUIDocument.Document
@@ -7,7 +7,7 @@ doc = __revit__.ActiveUIDocument.Document
 # Collect all views
 views = FilteredElementCollector(doc).OfClass(View).WhereElementIsNotElementType().ToElements()
 
-# Collect all sheets (to check if views are placed)
+# Collect all sheets to check if a view is placed
 sheets = FilteredElementCollector(doc).OfClass(ViewSheet).ToElements()
 views_on_sheets = set()
 for sheet in sheets:
@@ -20,19 +20,47 @@ protected_view_types = [
     ViewType.Section, ViewType.Elevation, ViewType.Detail, ViewType.DraftingView, ViewType.Schedule
 ]
 
-# Debug: Print all views and why they are NOT deleted
-output = script.get_output()
-output.print_md("### 🔍 **Debugging Unused Views Detection**")
-
+# Detect unused views correctly
+unused_views = []
 for v in views:
-    reason = []
-    if v.IsTemplate:
-        reason.append("Template View")
-    if v.ViewType in protected_view_types:
-        reason.append("Protected View Type ({})".format(v.ViewType))
-    if v.IsDependent:
-        reason.append("Dependent View")
-    if v.Id in views_on_sheets:
-        reason.append("Placed on a Sheet")
+    try:
+        # Check if the view is dependent (it has a parent)
+        if v.GetPrimaryViewId().IntegerValue != -1:
+            continue  # Skip dependent views
 
-    output.print_md("- **{}** → _{}_\n".format(v.Name, ", ".join(reason) if reason else "Possible for deletion"))
+        # Check if the view is unused
+        if v and not v.IsTemplate and v.ViewType not in protected_view_types and v.Id not in views_on_sheets:
+            unused_views.append(v)
+
+    except Exception as e:
+        print("Skipping element due to error: {}".format(e))
+
+# Stop if no views to delete
+if not unused_views:
+    forms.alert("No unused views found! Try ensuring your duplicate view is not on a sheet.", exitscript=True)
+else:
+    # Show a list of views that will be deleted
+    view_names = "\n".join([v.Name for v in unused_views])
+    confirm = forms.alert(
+        title="Confirm Deletion",
+        msg="The following {} views will be deleted:\n\n{}\n\nContinue?".format(len(unused_views), view_names),
+        ok=True, cancel=True
+    )
+
+    if confirm:
+        # Start a transaction
+        t = Transaction(doc, "Purge Unused Views")
+        t.Start()
+
+        deleted_count = 0
+        for v in unused_views:
+            try:
+                doc.Delete(v.Id)
+                deleted_count += 1
+            except Exception as e:
+                print("Could not delete {}: {}".format(v.Name, e))  # Fixed string formatting
+
+        t.Commit()
+
+        # Show result
+        forms.alert("Deleted {} unused views successfully!".format(deleted_count))
