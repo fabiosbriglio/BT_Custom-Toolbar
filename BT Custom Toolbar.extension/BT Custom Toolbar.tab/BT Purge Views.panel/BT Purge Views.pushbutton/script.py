@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from Autodesk.Revit.DB import FilteredElementCollector, View, Viewport, Transaction
+from Autodesk.Revit.DB import FilteredElementCollector, View, Viewport, Transaction, ElementId
 from pyrevit import forms, script
 
 # Get the active Revit document
@@ -13,7 +13,7 @@ viewports = FilteredElementCollector(doc).OfClass(Viewport).ToElements()
 
 # Dictionary to store views placed inside viewports and their sheets
 views_on_sheets = {}
-views_not_on_sheets = all_views.copy()  # Start assuming all views are NOT on sheets
+views_not_on_sheets = all_views.copy()  # Assume all views are NOT on sheets initially
 
 for vp in viewports:
     view = doc.GetElement(vp.ViewId)
@@ -36,14 +36,14 @@ view_name_map = {}  # Map displayed names to actual view objects
 for _, (view, sheet_name) in views_on_sheets.items():
     display_name = "{} (📄 Sheet: {})".format(view.Name, sheet_name)
     view_options.append(display_name)
-    view_name_map[display_name] = view  # Store the actual view object
+    view_name_map[display_name] = view  # Store actual view object
 
 # Add views NOT on sheets (marked in red)
 output.print_md("\n### ❌ **Views NOT in Viewports (not on any sheet)**")
 for view in views_not_on_sheets.values():
     display_name = "❌ {} (Not on Sheet)".format(view.Name)
     view_options.append(display_name)
-    view_name_map[display_name] = view  # Store the actual view object
+    view_name_map[display_name] = view  # Store actual view object
 
 # Stop if no views found
 if not view_options:
@@ -65,19 +65,31 @@ t = Transaction(doc, "Delete Selected Views")
 t.Start()
 
 deleted_count = 0
+invalid_views = []
 
 try:
     for view_text in selected_views:
         # Get the actual view object from the map
         view_to_delete = view_name_map.get(view_text, None)
-        
-        if view_to_delete:
-            doc.Delete(view_to_delete.Id)
-            deleted_count += 1
-            output.print_md("🗑 Deleted: {}".format(view_to_delete.Name))
+
+        # Check if the view still exists before deleting
+        if view_to_delete and doc.GetElement(view_to_delete.Id):
+            try:
+                doc.Delete(view_to_delete.Id)
+                deleted_count += 1
+                output.print_md("🗑 Deleted: {}".format(view_to_delete.Name))
+            except Exception as delete_error:
+                invalid_views.append(view_to_delete.Name)
+                output.print_md("⚠️ Could not delete {}: {}".format(view_to_delete.Name, delete_error))
 
     t.Commit()
-    forms.alert("✅ Deleted {} selected views!".format(deleted_count))
+    
+    # Show result message
+    msg = "✅ Deleted {} selected views!".format(deleted_count)
+    if invalid_views:
+        msg += "\n⚠️ The following views could not be deleted:\n" + "\n".join(invalid_views)
+    
+    forms.alert(msg)
 
 except Exception as e:
     t.RollBack()
