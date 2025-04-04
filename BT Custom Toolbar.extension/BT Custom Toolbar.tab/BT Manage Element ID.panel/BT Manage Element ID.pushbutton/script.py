@@ -1,120 +1,78 @@
 # -*- coding: utf-8 -*-
-from Autodesk.Revit.DB import (
-    FilteredElementCollector, View, ViewSchedule, Viewport, ViewSheet, Transaction, BuiltInParameter
-)
+from Autodesk.Revit.DB import FilteredElementCollector, Transaction, Element
 from pyrevit import forms, script
 
-# Get the active Revit document
+# Get active Revit document
 doc = __revit__.ActiveUIDocument.Document
 
-# 🔹 Function to check if a view is a system browser view
-def is_system_view(view):
-    """Returns True if the view is a system browser view."""
-    try:
-        param = view.get_Parameter(BuiltInParameter.VIEW_TYPE)
-        if param:
-            return param.AsInteger() == 6  # 6 = System Browser View
-    except:
-        pass
-    return False
+# List of element types to choose from
+element_types = [
+    "Walls",
+    "Floors",
+    "Doors",
+    "Windows",
+    "Columns",
+    "Beams",
+    "Rooms",
+    "Generic Models"
+]
 
-# 🔹 Collect all non-template, non-system views (EXCLUDING schedules)
-all_views = {
-    v.Id.IntegerValue: v for v in FilteredElementCollector(doc)
-    .OfClass(View)
-    .WhereElementIsNotElementType()
-    if not v.IsTemplate and not is_system_view(v) and not isinstance(v, ViewSchedule)  # ❌ Exclude system views & schedules
+# User selects an element type
+selected_type = forms.ask_for_one_item(element_types, title="Select Element Type")
+
+if not selected_type:
+    forms.alert("No element type selected. Exiting script.", exitscript=True)
+
+# Map selection to Revit class
+type_map = {
+    "Walls": "Wall",
+    "Floors": "Floor",
+    "Doors": "FamilyInstance",
+    "Windows": "FamilyInstance",
+    "Columns": "FamilyInstance",
+    "Beams": "FamilyInstance",
+    "Rooms": "Room",
+    "Generic Models": "GenericModel"
 }
 
-# 🔹 Collect all schedules separately
-all_schedules = {
-    s.Id.IntegerValue: s for s in FilteredElementCollector(doc)
-    .OfClass(ViewSchedule)
-    .WhereElementIsNotElementType()
-}
+selected_class = getattr(Autodesk.Revit.DB, type_map[selected_type], None)
 
-# 🔹 Collect all Viewports (views placed on sheets)
-viewports = FilteredElementCollector(doc).OfClass(Viewport).ToElements()
+if not selected_class:
+    forms.alert("Invalid selection. Exiting script.", exitscript=True)
 
-# 🔹 Collect all Sheets and check views placed on them
-sheets = FilteredElementCollector(doc).OfClass(ViewSheet).ToElements()
-views_on_sheets = set()
+# Collect elements of the selected type
+elements = FilteredElementCollector(doc).OfClass(selected_class).WhereElementIsNotElementType().ToElements()
 
-# ✅ Check **Viewports** (views explicitly placed inside sheets)
-for vp in viewports:
-    views_on_sheets.add(vp.ViewId.IntegerValue)
+if not elements:
+    forms.alert(f"No {selected_type.lower()} found in the project.", exitscript=True)
 
-# ✅ Check **ViewSheet** (some views might be directly placed on sheets)
-for sheet in sheets:
-    for view_id in sheet.GetAllPlacedViews():
-        views_on_sheets.add(view_id.IntegerValue)
+# Extract element IDs
+element_data = [{"Element Name": el.Name, "Current ID": el.Id.IntegerValue, "New ID": ""} for el in elements]
 
-# ✅ Final filtering: Exclude **ALL views that are on sheets**
-views_not_on_sheets = {
-    vid: v for vid, v in all_views.items() if vid not in views_on_sheets
-}
-schedules_not_on_sheets = {
-    sid: s for sid, s in all_schedules.items() if sid not in views_on_sheets
-}
+# Display editable table
+updated_data = forms.edit_table(element_data, title="Edit Element IDs", columns=["Element Name", "Current ID", "New ID"])
 
-# 🔹 Ask user what to delete
-delete_option = forms.SelectFromList.show(
-    ["❌ Delete Views (Not on Sheets)", "📊 Delete Schedules (Not on Sheets)"],
-    title="Select Deletion Category",
-    multiselect=False
-)
+if not updated_data:
+    forms.alert("No changes made. Exiting script.", exitscript=True)
 
-if not delete_option:
-    forms.alert("No category selected. Exiting script.", exitscript=True)
-
-# 🔹 Select category to delete
-if "Views" in delete_option:
-    elements_to_delete = views_not_on_sheets
-    category_name = "Views"
-elif "Schedules" in delete_option:
-    elements_to_delete = schedules_not_on_sheets
-    category_name = "Schedules"
-
-# 🔹 Prepare list for user selection
-view_options = []
-view_name_map = {}  # Map displayed names to actual view objects
-
-for element in elements_to_delete.values():
-    display_name = "❌ {} (Not on Sheet)".format(element.Name)
-    view_options.append(display_name)
-    view_name_map[display_name] = element  # Store actual object
-
-# 🔹 Stop if no views/schedules found
-if not view_options:
-    forms.alert("No {} found to delete!".format(category_name), exitscript=True)
-
-# 🔹 User selection
-selected_views = forms.SelectFromList.show(
-    view_options,
-    title="Select {} to Delete".format(category_name),
-    multiselect=True
-)
-
-# 🔹 Stop if user cancels
-if not selected_views:
-    forms.alert("No {} selected. Exiting script.".format(category_name), exitscript=True)
-
-# 🔹 Start transaction to delete views/schedules
-t = Transaction(doc, "Delete Selected {}".format(category_name))
+# Start transaction to apply new IDs
+t = Transaction(doc, "Update Element IDs")
 t.Start()
 
-deleted_count = 0
+try:
+    for row in updated_data:
+        element_id = int(row["Current ID"])
+        new_id = row["New ID"].strip()
+        
+        if new_id and new_id.isdigit():
+            element = doc.GetElement(ElementId(element_id))
+            if element:
+                param = element.LookupParameter("Mark")
+                if param and param.IsReadOnly is False:
+                    param.Set(new_id)
 
-for view_text in selected_views:
-    element_to_delete = view_name_map.get(view_text, None)
-    if element_to_delete:
-        try:
-            doc.Delete(element_to_delete.Id)
-            deleted_count += 1
-        except Exception as e:
-            script.get_output().print_md("⚠️ Could not delete {}: {}".format(view_text, e))
-
-t.Commit()
-
-# 🔹 Show result message
-forms.alert("✅ Deleted {} {} successfully!".format(deleted_count, category_name))
+    t.Commit()
+    forms.alert("✅ Element IDs updated successfully!")
+except Exception as e:
+    t.RollBack()
+    forms.alert(f"⚠️ Error updating elements: {str(e)}")
