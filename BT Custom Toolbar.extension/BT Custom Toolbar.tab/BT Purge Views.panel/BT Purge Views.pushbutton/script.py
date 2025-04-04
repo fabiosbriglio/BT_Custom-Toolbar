@@ -31,7 +31,12 @@ for v in views:
             output.print_md("Keeping: {} (Placed on Sheet)".format(v.Name))
             continue
 
-        # If a view is NOT on a sheet, mark it for deletion
+        # Skip dependent views (they cannot be deleted alone)
+        if v.GetPrimaryViewId().IntegerValue != -1:
+            output.print_md("Skipping: {} (Dependent View)".format(v.Name))
+            continue
+
+        # If a view is NOT on a sheet and is not a dependent view, mark it for deletion
         views_to_delete.append(v)
         output.print_md("Marking for Deletion: {} (Not on Sheet)".format(v.Name))
 
@@ -60,9 +65,12 @@ else:
             deleted_count = 0
             for v in views_to_delete:
                 try:
-                    doc.Delete(v.Id)
-                    deleted_count += 1
-                    output.print_md("Deleted: {}".format(v.Name))
+                    if doc.GetElement(v.Id) is not None:  # Ensure the view still exists before deleting
+                        doc.Delete(v.Id)
+                        deleted_count += 1
+                        output.print_md("Deleted: {}".format(v.Name))
+                    else:
+                        output.print_md("Skipping: {} (Already Deleted)".format(v.Name))
 
                 except Exception as e:
                     output.print_md("Could not delete {}: {}".format(v.Name, e))
