@@ -30,15 +30,20 @@ output.print_md("### 📋 **Views on Sheets (in Viewports)**")
 
 # Prepare list for user selection
 view_options = []
+view_name_map = {}  # Map displayed names to actual view objects
 
 # Add views on sheets (in viewports)
 for _, (view, sheet_name) in views_on_sheets.items():
-    view_options.append("{} (📄 Sheet: {})".format(view.Name, sheet_name))
+    display_name = "{} (📄 Sheet: {})".format(view.Name, sheet_name)
+    view_options.append(display_name)
+    view_name_map[display_name] = view  # Store the actual view object
 
 # Add views NOT on sheets (marked in red)
 output.print_md("\n### ❌ **Views NOT in Viewports (not on any sheet)**")
 for view in views_not_on_sheets.values():
-    view_options.append("❌ {} (Not on Sheet)".format(view.Name))
+    display_name = "❌ {} (Not on Sheet)".format(view.Name)
+    view_options.append(display_name)
+    view_name_map[display_name] = view  # Store the actual view object
 
 # Stop if no views found
 if not view_options:
@@ -63,11 +68,8 @@ deleted_count = 0
 
 try:
     for view_text in selected_views:
-        # Extract view name
-        view_name = view_text.split(" (")[0]
-        
-        # Find the view by name
-        view_to_delete = next((v for v in all_views.values() if v.Name == view_name), None)
+        # Get the actual view object from the map
+        view_to_delete = view_name_map.get(view_text, None)
         
         if view_to_delete:
             doc.Delete(view_to_delete.Id)
