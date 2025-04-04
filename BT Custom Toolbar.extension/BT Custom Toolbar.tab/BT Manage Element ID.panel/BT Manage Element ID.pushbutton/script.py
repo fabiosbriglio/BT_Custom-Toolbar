@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from Autodesk.Revit.DB import FilteredElementCollector, Transaction, ElementId, Wall, Floor, FamilyInstance, GenericModel
+from Autodesk.Revit.DB import FilteredElementCollector, Transaction, ElementId, Wall, Floor, FamilyInstance
 from Autodesk.Revit.DB.Architecture import Room  # Correct import for Room
 from pyrevit import forms, script
 
@@ -33,7 +33,7 @@ type_map = {
     "Columns": FamilyInstance,
     "Beams": FamilyInstance,
     "Rooms": Room,
-    "Generic Models": GenericModel
+    "Generic Models": FamilyInstance  # ✅ Fix: Generic Models are FamilyInstances
 }
 
 selected_class = type_map.get(selected_type, None)
