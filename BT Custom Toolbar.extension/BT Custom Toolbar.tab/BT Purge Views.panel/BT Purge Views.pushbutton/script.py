@@ -1,12 +1,26 @@
 # -*- coding: utf-8 -*-
-from Autodesk.Revit.DB import FilteredElementCollector, View, Viewport, Transaction, ElementId
+from Autodesk.Revit.DB import FilteredElementCollector, View, Viewport, Transaction, BuiltInParameter
 from pyrevit import forms, script
 
 # Get the active Revit document
 doc = __revit__.ActiveUIDocument.Document
 
-# Collect all views (excluding templates)
-all_views = {v.Id.IntegerValue: v for v in FilteredElementCollector(doc).OfClass(View).WhereElementIsNotElementType() if not v.IsTemplate}
+# Function to check if a view is a system browser view
+def is_system_view(view):
+    """Returns True if the view is a system browser view."""
+    try:
+        view_type = view.get_Parameter(BuiltInParameter.VIEW_TYPE).AsInteger()
+        return view_type == 6  # 6 = System Browser View
+    except:
+        return False
+
+# Collect all views (excluding templates and system browser views)
+all_views = {
+    v.Id.IntegerValue: v for v in FilteredElementCollector(doc)
+    .OfClass(View)
+    .WhereElementIsNotElementType()
+    if not v.IsTemplate and not is_system_view(v)  # Exclude system views
+}
 
 # Collect all viewports (which contain views placed on sheets)
 viewports = FilteredElementCollector(doc).OfClass(Viewport).ToElements()
@@ -55,8 +69,11 @@ deleted_count = 0
 for view_text in selected_views:
     view_to_delete = view_name_map.get(view_text, None)
     if view_to_delete:
-        doc.Delete(view_to_delete.Id)
-        deleted_count += 1
+        try:
+            doc.Delete(view_to_delete.Id)
+            deleted_count += 1
+        except Exception as e:
+            script.get_output().print_md("⚠️ Could not delete {}: {}".format(view_text, e))
 
 t.Commit()
 
