@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from Autodesk.Revit.DB import (
-    FilteredElementCollector, View, ViewSchedule, Viewport, ViewSheet, Transaction, BuiltInParameter, ElementId
+    FilteredElementCollector, View, ViewSchedule, Viewport, ViewSheet, Transaction, BuiltInParameter
 )
 from pyrevit import forms, script
 
@@ -18,12 +18,12 @@ def is_system_view(view):
         pass
     return False
 
-# 🔹 Collect all views (excluding templates & system browser views)
+# 🔹 Collect all non-template, non-system views (EXCLUDING schedules)
 all_views = {
     v.Id.IntegerValue: v for v in FilteredElementCollector(doc)
     .OfClass(View)
     .WhereElementIsNotElementType()
-    if not v.IsTemplate and not is_system_view(v)  # Exclude system browser views
+    if not v.IsTemplate and not is_system_view(v) and not isinstance(v, ViewSchedule)  # ❌ Exclude system views & schedules
 }
 
 # 🔹 Collect all schedules separately
