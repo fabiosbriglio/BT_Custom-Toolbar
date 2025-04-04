@@ -1,0 +1,14 @@
+{
+    "builtin": "True",
+    "default_enabled": "True",
+    "type": "extension",
+    "rocket_mode_compatible": "True",
+    "name": "BT Custom Toolbar",
+    "description": "BIMTrainer custom toolbar",
+    "author": "Fabio Sbriglio",
+    "author_profile": "",
+    "url": "https://github.com/fabiosbriglio/Center-View---Fabio.git",
+    "website": "https://bimtrainer.it",
+    "image": "https://github.com/fabiosbriglio/Center-View---Fabio/blob/main/Center_Views.extension/Center%20Views.tab/Center%20Views.panel/icon.png",
+    "dependencies": []
+}
