@@ -36,7 +36,7 @@ for v in views:
             output.print_md("Skipping: {} (Dependent View)".format(v.Name))
             continue
 
-        # If a view is NOT on a sheet and is not a dependent view, mark it for deletion
+        # If a view is NOT on a sheet, mark it for deletion
         views_to_delete.append(v)
         output.print_md("Marking for Deletion: {} (Not on Sheet)".format(v.Name))
 
