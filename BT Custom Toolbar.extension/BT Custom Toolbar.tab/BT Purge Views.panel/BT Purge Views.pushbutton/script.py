@@ -1,10 +1,10 @@
 from Autodesk.Revit.DB import FilteredElementCollector, View, ViewSheet, ViewType, Transaction
-from pyrevit import forms
+from pyrevit import forms, script
 
 # Get the active Revit document
 doc = __revit__.ActiveUIDocument.Document
 
-# Collect all views (excluding system views)
+# Collect all views in the project (excluding system views)
 views = FilteredElementCollector(doc).OfClass(View).WhereElementIsNotElementType().ToElements()
 
 # Collect all sheets to check if a view is placed
@@ -14,14 +14,18 @@ for sheet in sheets:
     for v_id in sheet.GetAllPlacedViews():
         views_on_sheets.add(v_id)
 
-# Protected view types that should NOT be deleted
-protected_view_types = [
+# Define protected view types (to avoid deleting essential views)
+protected_view_types = {
     ViewType.FloorPlan, ViewType.CeilingPlan, ViewType.ThreeD, ViewType.EngineeringPlan,
     ViewType.Section, ViewType.Elevation, ViewType.Detail, ViewType.DraftingView, ViewType.Schedule
-]
+}
 
 # List of known system views that should NOT be deleted
 system_view_names = ["Vista di progetto", "Browser di sistema"]
+
+# Debugging Output
+output = script.get_output()
+output.print_md("### 🔍 **Checking Views to Delete**")
 
 # Detect unused views correctly
 unused_views = []
@@ -29,22 +33,40 @@ for v in views:
     try:
         # Skip system views by name
         if v.Name in system_view_names:
+            output.print_md(f"🚫 Skipping system view: {v.Name}")
             continue
 
-        # Skip dependent views (they belong to a parent)
+        # Skip templates
+        if v.IsTemplate:
+            output.print_md(f"⚠️ Skipping template view: {v.Name}")
+            continue
+
+        # Skip protected view types
+        if v.ViewType in protected_view_types:
+            output.print_md(f"🔒 Protected view type: {v.Name} ({v.ViewType})")
+            continue
+
+        # Skip dependent views
         if v.GetPrimaryViewId().IntegerValue != -1:
+            output.print_md(f"🔗 Skipping dependent view: {v.Name}")
             continue
 
-        # Check if the view is unused
-        if v and not v.IsTemplate and v.ViewType not in protected_view_types and v.Id not in views_on_sheets:
-            unused_views.append(v)
+        # Skip views placed on a sheet
+        if v.Id in views_on_sheets:
+            output.print_md(f"📌 Skipping view placed on sheet: {v.Name}")
+            continue
+
+        # If a view passes all checks, add it to deletion list
+        unused_views.append(v)
+        output.print_md(f"✅ Marking for deletion: {v.Name}")
 
     except Exception as e:
-        print("Skipping element due to error: {}".format(e))
+        output.print_md(f"⚠️ Error processing {v.Name}: {e}")
 
 # Stop if no views to delete
 if not unused_views:
-    forms.alert("No unused views found! Try ensuring your duplicate view is not on a sheet.", exitscript=True)
+    forms.alert("No unused views found! Check if your duplicate views are still linked to something.", exitscript=True)
+
 else:
     # Show a list of views that will be deleted
     view_names = "\n".join([v.Name for v in unused_views])
@@ -64,10 +86,11 @@ else:
             try:
                 doc.Delete(v.Id)
                 deleted_count += 1
+                output.print_md(f"🗑 Deleted: {v.Name}")
             except Exception as e:
-                print("Could not delete {}: {}".format(v.Name, e))  # Fixed string formatting
+                output.print_md(f"⚠️ Could not delete {v.Name}: {e}")
 
         t.Commit()
 
         # Show result
-        forms.alert("Deleted {} unused views successfully!".format(deleted_count))
+        forms.alert(f"Deleted {deleted_count} unused views successfully! 🚀")
