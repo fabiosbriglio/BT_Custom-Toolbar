@@ -6,7 +6,12 @@ from pyrevit import forms, script
 doc = __revit__.ActiveUIDocument.Document
 
 # Collect all views (excluding templates)
-all_views = {v.Id.IntegerValue: v for v in FilteredElementCollector(doc).OfClass(View).WhereElementIsNotElementType() if not v.IsTemplate}
+all_views = {
+    v.Id.IntegerValue: v for v in FilteredElementCollector(doc)
+    .OfClass(View)
+    .WhereElementIsNotElementType()
+    if not v.IsTemplate
+}
 
 # Collect all viewports (views placed on sheets)
 viewports = FilteredElementCollector(doc).OfClass(Viewport).ToElements()
@@ -61,9 +66,9 @@ for view_id in views_to_delete:
             doc.Delete(element.Id)
             deleted_count += 1
     except Exception as e:
-        script.get_output().print_md(f"⚠️ Could not delete view {view_id}: {e}")
+        script.get_output().print_md("⚠️ Could not delete view {}: {}".format(view_id, e))
 
 t.Commit()
 
 # Show result message
-forms.alert(f"✅ Deleted {deleted_count} views successfully!")
+forms.alert("✅ Deleted {} views successfully!".format(deleted_count))
