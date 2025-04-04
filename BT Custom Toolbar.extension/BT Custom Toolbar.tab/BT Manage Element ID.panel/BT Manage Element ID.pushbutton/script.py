@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
-from Autodesk.Revit.DB import FilteredElementCollector, Transaction, ElementId, Wall, Floor, FamilyInstance
+from Autodesk.Revit.DB import (
+    FilteredElementCollector, Transaction, ElementId, Wall, Floor, 
+    FamilyInstance, Ceiling, RoofBase, Stairs, Railing, Column, 
+    BeamSystem, StructuralFraming, StructuralColumn
+)
 from Autodesk.Revit.DB.Architecture import Room  # Correct import for Room
 from pyrevit import forms, script
 
@@ -10,12 +14,18 @@ doc = __revit__.ActiveUIDocument.Document
 element_types = [
     "Walls",
     "Floors",
+    "Ceilings",
+    "Roofs",
     "Doors",
     "Windows",
     "Columns",
     "Beams",
+    "Stairs",
+    "Railings",
     "Rooms",
-    "Generic Models"
+    "Generic Models",
+    "Structural Columns",
+    "Structural Framing"
 ]
 
 # User selects an element type
@@ -28,12 +38,18 @@ if not selected_type:
 type_map = {
     "Walls": Wall,
     "Floors": Floor,
+    "Ceilings": Ceiling,
+    "Roofs": RoofBase,
     "Doors": FamilyInstance,
     "Windows": FamilyInstance,
-    "Columns": FamilyInstance,
-    "Beams": FamilyInstance,
+    "Columns": Column,
+    "Beams": StructuralFraming,
+    "Stairs": Stairs,
+    "Railings": Railing,
     "Rooms": Room,
-    "Generic Models": FamilyInstance  # ✅ Fix: Generic Models are FamilyInstances
+    "Generic Models": FamilyInstance,  # ✅ Generic Models are FamilyInstances
+    "Structural Columns": StructuralColumn,
+    "Structural Framing": StructuralFraming
 }
 
 selected_class = type_map.get(selected_type, None)
