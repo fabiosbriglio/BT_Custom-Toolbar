@@ -4,7 +4,7 @@ from pyrevit import forms
 # Get the active Revit document
 doc = __revit__.ActiveUIDocument.Document
 
-# Collect all views
+# Collect all views (excluding system views)
 views = FilteredElementCollector(doc).OfClass(View).WhereElementIsNotElementType().ToElements()
 
 # Collect all sheets to check if a view is placed
@@ -20,13 +20,20 @@ protected_view_types = [
     ViewType.Section, ViewType.Elevation, ViewType.Detail, ViewType.DraftingView, ViewType.Schedule
 ]
 
+# List of known system views that should NOT be deleted
+system_view_names = ["Vista di progetto", "Browser di sistema"]
+
 # Detect unused views correctly
 unused_views = []
 for v in views:
     try:
-        # Check if the view is dependent (it has a parent)
+        # Skip system views by name
+        if v.Name in system_view_names:
+            continue
+
+        # Skip dependent views (they belong to a parent)
         if v.GetPrimaryViewId().IntegerValue != -1:
-            continue  # Skip dependent views
+            continue
 
         # Check if the view is unused
         if v and not v.IsTemplate and v.ViewType not in protected_view_types and v.Id not in views_on_sheets:
